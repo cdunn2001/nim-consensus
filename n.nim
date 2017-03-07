@@ -10,8 +10,8 @@ import sequtils
 import sets
 import strutils
 
-import common
-import foo
+from foo import nil
+from common import nil
 
 proc log(msgs: varargs[string]) =
   for s in msgs:
@@ -112,14 +112,14 @@ proc get_consensus_without_trim(inseqs: seq[string], seed_id: string, config: Co
     var cseqs: cStringArray
     let n_seq: cuint = cuint(len(seqs))
     copy_seq_ptrs(cseqs, seqs)
-    poo()
+    foo.poo()
     log("About to generate_consensus ", $len(seqs), " ", $n_seq)
     #echo cseqs
-    var consensus_data_ptr = generate_consensus(cseqs, n_seq, cuint(config.min_cov), cuint(config.K), cdouble(config.min_idt))
+    var consensus_data_ptr = common.generate_consensus(cseqs, n_seq, cuint(config.min_cov), cuint(config.K), cdouble(config.min_idt))
     deallocCStringArray(cseqs)
     var consensus = $consensus_data_ptr.sequence # expect a copy
     #eff_cov = consensus_data_ptr.eff_cov[:len(consensus)]
-    free_consensus_data(consensus_data_ptr)
+    common.free_consensus_data(consensus_data_ptr)
     return (consensus, seed_id)
 proc findall_patt(consensus: string, patt: Regex): seq[string] =
   result = findall(consensus, patt)
