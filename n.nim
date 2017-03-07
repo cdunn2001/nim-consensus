@@ -110,16 +110,11 @@ proc get_consensus_without_trim(inseqs: seq[string], seed_id: string, config: Co
     poo()
     echo len(seqs), " ", n_seq
     #echo cseqs
-    discard generate_consensus(cseqs, n_seq, cuint(config.min_cov), cuint(config.K), cdouble(config.min_idt))
+    var consensus_data_ptr = generate_consensus(cseqs, n_seq, cuint(config.min_cov), cuint(config.K), cdouble(config.min_idt))
     deallocCStringArray(cseqs)
-    #echo q[].sequence
-    #consensus_data_ptr = falcon.generate_consensus( seqs_ptr, len(seqs), min_cov, K, min_idt )
-
-    var consensus = "ACGT"
-    #consensus = string_at(consensus_data_ptr[0].sequence)[:]
-    #eff_cov = consensus_data_ptr[0].eff_cov[:len(consensus)]
-    #falcon.free_consensus_data( consensus_data_ptr )
-    #del seqs_ptr
+    var consensus = $consensus_data_ptr.sequence # expect a copy
+    #eff_cov = consensus_data_ptr.eff_cov[:len(consensus)]
+    free_consensus_data(consensus_data_ptr)
     return (consensus, seed_id)
 proc main() =
   echo "hi"
@@ -139,6 +134,6 @@ proc main() =
     echo((len(seqs), seed_id, config))
     var cns: string
     (cns, seed_id) = get_consensus_without_trim(seqs, seed_id, config)
-    echo cns, seed_id
+    echo len(cns), seed_id
 when isMainModule:
   main()
