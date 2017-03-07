@@ -1,7 +1,13 @@
+# vim: sw=2 ts=2 sts=2 tw=80 et:
+{.passC: "-g -Wall -I.".}
+{.compile: "DW_banded.o".}
+{.compile: "falcon.o".}
+{.compile: "kmer_lookup.o".}
 import algorithm
 import sequtils
 import sets
 import strutils
+import common
 
 proc get_longest_reads(seqs: seq[string], max_n_read, max_cov_aln: int): seq[string] =
     var longest_n_reads = max_n_read
@@ -32,7 +38,12 @@ proc get_longest_sorted_reads(seqs: seq[string], max_n_read, max_cov_aln: int): 
   return get_longest_reads(sorted_seqs, max_n_read, max_cov_aln)
 type
   Config = tuple
+    min_cov: int,
+    K: int,
     max_n_read: int
+    min_idt: float32
+    edge_tolerance: int,
+    trim_size: int
     min_cov_aln: int
     max_cov_aln: int
 iterator get_seq_data(config: Config, min_n_read, min_len_aln: int): auto =
@@ -81,13 +92,16 @@ iterator get_seq_data(config: Config, min_n_read, min_len_aln: int): auto =
               read_ids.incl(read_id)
               read_cov += len(sequ)
 proc get_consensus_without_trim(inseqs: seq[string], seed_id: string, config: Config): auto =
-    #min_cov, K, max_n_read, min_idt, edge_tolerance, trim_size, min_cov_aln, max_cov_aln = config
     var seqs = inseqs
     if len(seqs) > config.max_n_read:
         seqs = get_longest_sorted_reads(seqs, config.max_n_read, config.max_cov_aln)
     #seqs_ptr = seqs # copy
     #for i in countup(0, len(seqs)-1):
     #  log("i len(seq) %d %d"%(i, len(seq)))
+    var cseqs: cStringArray
+    let n_seq: cuint = len(seqs)
+    copy_seq_ptrs(cseqs, seqs)
+    generate_consensus(cseqs, n_seq, cuint(config.min_cov), cuint(config.K), cuint(config.min_idt), cdouble(config.min_idt))
     #consensus_data_ptr = falcon.generate_consensus( seqs_ptr, len(seqs), min_cov, K, min_idt )
 
     var consensus = "ACGT"
