@@ -1,1 +1,4 @@
-proc poo*() {.cdecl, importc: "poo", header: "foo.h".}
+#{.deadCodeElim: on.}
+proc poo*() {.cdecl, importc, header:"../foo.h".}
+
+poo()
