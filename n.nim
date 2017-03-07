@@ -5,6 +5,7 @@
 {.compile: "falcon.c".}
 {.compile: "kmer_lookup.c".}
 import algorithm
+import nre
 import sequtils
 import sets
 import strutils
@@ -12,6 +13,10 @@ import strutils
 import common
 import foo
 
+proc log(msgs: varargs[string]) =
+  for s in msgs:
+    write(stderr, s)
+  write(stderr, '\l')
 proc get_longest_reads(seqs: seq[string], max_n_read, max_cov_aln: int): seq[string] =
     var longest_n_reads = max_n_read
     if max_cov_aln > 0:
@@ -37,7 +42,7 @@ proc get_longest_sorted_reads(seqs: seq[string], max_n_read, max_cov_aln: int): 
   #seqs[1 .. seqs.high].sort(proc (x,y: string): int = cmp(y.len, x.len))
   sorted_seqs.sort(proc (x,y: string): int = cmp(y.len, x.len))
   sorted_seqs.insert([seqs[0]], 0)
-  echo "sortlen", len(sorted_seqs)
+  log("sortlen", $len(sorted_seqs))
   return get_longest_reads(sorted_seqs, max_n_read, max_cov_aln)
 type
   Config = tuple
@@ -70,7 +75,7 @@ iterator get_seq_data(config: Config, min_n_read, min_len_aln: int): auto =
     case read_id
     of "+":
       if len(seqs) >= min_n_read and read_cov div seed_len >= config.min_cov_aln:
-          echo "len", len(seqs)
+          log("len(seqs) ", $len(seqs))
           seqs = get_longest_sorted_reads(seqs, config.max_n_read, config.max_cov_aln)
           yield (seqs, seed_id, config)
       seqs = @[]
@@ -108,7 +113,7 @@ proc get_consensus_without_trim(inseqs: seq[string], seed_id: string, config: Co
     let n_seq: cuint = cuint(len(seqs))
     copy_seq_ptrs(cseqs, seqs)
     poo()
-    echo len(seqs), " ", n_seq
+    log("About to generate_consensus ", $len(seqs), " ", $n_seq)
     #echo cseqs
     var consensus_data_ptr = generate_consensus(cseqs, n_seq, cuint(config.min_cov), cuint(config.K), cdouble(config.min_idt))
     deallocCStringArray(cseqs)
@@ -116,8 +121,24 @@ proc get_consensus_without_trim(inseqs: seq[string], seed_id: string, config: Co
     #eff_cov = consensus_data_ptr.eff_cov[:len(consensus)]
     free_consensus_data(consensus_data_ptr)
     return (consensus, seed_id)
+proc findall_patt(consensus: string, patt: Regex): seq[string] =
+  result = findall(consensus, patt)
+  #echo consensus[0], " ", len(consensus), " ", consensus[^1], " ", len(result)
+proc format_seq(sequ: string, col: int): string =
+  result = newString(len(sequ) + len(sequ) div col + 1)
+  var bo = 0
+  var bn = 0
+  while (bo+col) < len(sequ):
+    result[bn .. <(bn+col)] = sequ[bo .. <(bo+col)]
+    result[(bn+col)] = '\l'
+    bo += col
+    bn += col + 1
+  var tail = len(sequ) - bo
+  result[bn .. <(bn+tail)] = sequ[bo .. <(bo+tail)]
+  result.setLen(bn+tail)
+  #result[(bn+tail)] = '\l' # Python did not add final newline
 proc main() =
-  echo "hi"
+  log("hi")
   let config: Config = (
     min_cov: 1, # default 6
     K: 8, # not cli
@@ -129,11 +150,37 @@ proc main() =
     max_cov_aln: 0)
   let min_n_read = 10
   let min_len_aln = 0
+  let good_regions = re"[ACGT]+"
   for q in get_seq_data(config, min_n_read, min_len_aln):
     var (seqs, seed_id, config) = q
-    echo((len(seqs), seed_id, config))
-    var cns: string
-    (cns, seed_id) = get_consensus_without_trim(seqs, seed_id, config)
-    echo len(cns), seed_id
+    log($(len(seqs), seed_id, config))
+    var consensus: string
+    (consensus, seed_id) = get_consensus_without_trim(seqs, seed_id, config)
+    log($len(consensus), " in seed ", seed_id)
+    if len(consensus) < 500:
+        continue
+    if false: # args.output_full:
+        echo ">"&seed_id&"_f"
+        echo consensus
+        continue
+    var cns = findall_patt(consensus, good_regions)
+    if len(cns) == 0:
+        continue
+    if true: #args.output_multi:
+        var seq_i = 0
+        for cns_seq in cns:
+            #log("%d %d" %(len(cns_seq), len(consensus)))
+            if len(cns_seq) < 500:
+                continue
+            if seq_i >= 10:
+                break
+            #print ">prolog/%s%01d/%d_%d" % (seed_id, seq_i, 0, len(cns_seq))
+            echo ">prolog/", seed_id, seq_i, "/", 0, "_", len(cns_seq)
+            echo format_seq(cns_seq, 80)
+            seq_i += 1
+    else:
+        #cns.sort(key = lambda x: len(x))
+        echo ">"&seed_id
+        echo cns[cns.high-1]
 when isMainModule:
   main()
