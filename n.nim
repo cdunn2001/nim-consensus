@@ -1,13 +1,16 @@
 # vim: sw=2 ts=2 sts=2 tw=80 et:
 {.passC: "-g -Wall -I.".}
-{.compile: "DW_banded.o".}
-{.compile: "falcon.o".}
-{.compile: "kmer_lookup.o".}
+{.compile: "DW_banded.c".}
+{.compile: "poo.c".}
+{.compile: "falcon.c".}
+{.compile: "kmer_lookup.c".}
 import algorithm
 import sequtils
 import sets
 import strutils
+
 import common
+import foo
 
 proc get_longest_reads(seqs: seq[string], max_n_read, max_cov_aln: int): seq[string] =
     var longest_n_reads = max_n_read
@@ -38,11 +41,11 @@ proc get_longest_sorted_reads(seqs: seq[string], max_n_read, max_cov_aln: int): 
   return get_longest_reads(sorted_seqs, max_n_read, max_cov_aln)
 type
   Config = tuple
-    min_cov: int,
-    K: int,
+    min_cov: int
+    K: int
     max_n_read: int
     min_idt: float32
-    edge_tolerance: int,
+    edge_tolerance: int
     trim_size: int
     min_cov_aln: int
     max_cov_aln: int
@@ -91,6 +94,9 @@ iterator get_seq_data(config: Config, min_n_read, min_len_aln: int): auto =
               seqs.add(sequ) #the "seed"
               read_ids.incl(read_id)
               read_cov += len(sequ)
+proc copy_seq_ptrs(cseqs: var cStringArray, seqs: seq[string]) =
+  cseqs = allocCStringArray(seqs)
+
 proc get_consensus_without_trim(inseqs: seq[string], seed_id: string, config: Config): auto =
     var seqs = inseqs
     if len(seqs) > config.max_n_read:
@@ -99,9 +105,14 @@ proc get_consensus_without_trim(inseqs: seq[string], seed_id: string, config: Co
     #for i in countup(0, len(seqs)-1):
     #  log("i len(seq) %d %d"%(i, len(seq)))
     var cseqs: cStringArray
-    let n_seq: cuint = len(seqs)
+    let n_seq: cuint = cuint(len(seqs))
     copy_seq_ptrs(cseqs, seqs)
-    generate_consensus(cseqs, n_seq, cuint(config.min_cov), cuint(config.K), cuint(config.min_idt), cdouble(config.min_idt))
+    poo()
+    echo len(seqs), " ", n_seq
+    #echo cseqs
+    discard generate_consensus(cseqs, n_seq, cuint(config.min_cov), cuint(config.K), cdouble(config.min_idt))
+    deallocCStringArray(cseqs)
+    #echo q[].sequence
     #consensus_data_ptr = falcon.generate_consensus( seqs_ptr, len(seqs), min_cov, K, min_idt )
 
     var consensus = "ACGT"
@@ -112,7 +123,15 @@ proc get_consensus_without_trim(inseqs: seq[string], seed_id: string, config: Co
     return (consensus, seed_id)
 proc main() =
   echo "hi"
-  let config: Config = (max_n_read: 500, min_cov_aln: 10, max_cov_aln: 0)
+  let config: Config = (
+    min_cov: 1, # default 6
+    K: 8, # not cli
+    max_n_read: 500,
+    min_idt: 0.70f32, # default also
+    edge_tolerance: 1000,
+    trim_size: 50,
+    min_cov_aln: 10,
+    max_cov_aln: 0)
   let min_n_read = 10
   let min_len_aln = 0
   for q in get_seq_data(config, min_n_read, min_len_aln):
