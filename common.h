@@ -152,8 +152,6 @@ kmer_match * find_kmer_pos_for_seq( char *,
                                     kmer_lookup * );
 
 void free_kmer_match( kmer_match * ptr);
-void free_kmer_lookup(kmer_lookup * );
-
 
 
 void add_sequence ( seq_coor_t, 
