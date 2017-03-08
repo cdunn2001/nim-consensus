@@ -15,6 +15,7 @@ from foo import nil
 from common import nil
 
 let good_regions = re"[ACGT]+"
+var thread_msa_array {.threadvar.}: string
 
 proc log(msgs: varargs[string]) =
   for s in msgs:
@@ -148,7 +149,12 @@ proc format_seq(sequ: string, col: int): string =
   result[bn .. <(bn+tail)] = sequ[bo .. <(bo+tail)]
   result.setLen(bn+tail)
   #result[(bn+tail)] = '\l' # Python did not add final newline
-proc process_consensus(cargs: ConsensusArgs) =
+proc process_consensus(cargs: ConsensusArgs) {.thread} =
+    if thread_msa_array == nil:
+      log "Was nil"
+      thread_msa_array = ""
+    else:
+      log "Was not nil"
     var (consensus, seed_id) = get_consensus_without_trim(cargs)
     log($len(consensus), " in seed ", seed_id)
     if len(consensus) < 500:
