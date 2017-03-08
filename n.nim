@@ -5,6 +5,7 @@
 {.compile: "falcon.c".}
 {.compile: "kmer_lookup.c".}
 import algorithm
+import threadpool
 import nre
 import sequtils
 import sets
@@ -193,6 +194,7 @@ proc main() =
     var (seqs, seed_id, config_same) = q
     log($(len(seqs), seed_id, config))
     var cargs: ConsensusArgs = (inseqs: seqs, seed_id: seed_id, config: config)
-    process_consensus(cargs)
+    spawn process_consensus(cargs)
+  sync()
 when isMainModule:
   main()
