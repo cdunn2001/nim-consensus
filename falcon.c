@@ -301,7 +301,7 @@ void clean_msa_working_space( msa_pos_t * msa_array, unsigned int max_t_len) {
 }
 
 #define STATIC_ALLOCATE
-//#undef STATIC_ALLOCATE
+#undef STATIC_ALLOCATE
 
 consensus_data * get_cns_from_align_tags( align_tags_t ** tag_seqs,
                                           unsigned n_tag_seqs,
@@ -316,13 +316,13 @@ consensus_data * get_cns_from_align_tags( align_tags_t ** tag_seqs,
     consensus_data * consensus;
     //char * consensus;
     align_tag_t * c_tag;
-    static msa_pos_t * msa_array = NULL;
 
     coverage = calloc( t_len, sizeof(unsigned int) );
     local_nbase = calloc( t_len, sizeof(unsigned int) );
 
 #ifndef STATIC_ALLOCATE
 
+    msa_pos_t * msa_array = NULL;
     msa_array = calloc(t_len, sizeof(msa_pos_t *));
 
     for (i = 0; i < t_len; i++) {
@@ -335,6 +335,7 @@ consensus_data * get_cns_from_align_tags( align_tags_t ** tag_seqs,
 
 #ifdef STATIC_ALLOCATE
 
+    static msa_pos_t * msa_array = NULL;
     if ( msa_array == NULL) {
         msa_array = get_msa_working_sapce( 100000 );
     }
