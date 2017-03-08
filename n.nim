@@ -152,7 +152,7 @@ proc main() =
   let min_len_aln = 0
   let good_regions = re"[ACGT]+"
   for q in get_seq_data(config, min_n_read, min_len_aln):
-    var (seqs, seed_id, config) = q
+    var (seqs, seed_id, config_same) = q
     log($(len(seqs), seed_id, config))
     var consensus: string
     (consensus, seed_id) = get_consensus_without_trim(seqs, seed_id, config)

@@ -5,8 +5,7 @@ foo.nim: foo.h
 	c2nim foo.h --out:foo.nim
 common.nim:
 	c2nim --header --cdecl foo.h --out:foo.nim
-run-%: %.nim
-	nim -d:debug --out:$*.exe c $<
+run-%: %.exe
 	./$*.exe
 %.exe: %.nim
 	nim -d:debug --out:$*.exe c $<
