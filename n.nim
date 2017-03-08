@@ -102,8 +102,15 @@ iterator get_seq_data(config: Config, min_n_read, min_len_aln: int): auto =
 proc copy_seq_ptrs(cseqs: var cStringArray, seqs: seq[string]) =
   cseqs = allocCStringArray(seqs)
 
-proc get_consensus_without_trim(inseqs: seq[string], seed_id: string, config: Config): auto =
-    var seqs = inseqs
+type
+  ConsensusArgs = tuple
+    inseqs: seq[string]
+    seed_id: string
+    config: Config
+
+proc get_consensus_without_trim(args: ConsensusArgs): auto =
+    var config = args.config
+    var seqs = args.inseqs
     if len(seqs) > config.max_n_read:
         seqs = get_longest_sorted_reads(seqs, config.max_n_read, config.max_cov_aln)
     #seqs_ptr = seqs # copy
@@ -120,7 +127,7 @@ proc get_consensus_without_trim(inseqs: seq[string], seed_id: string, config: Co
     var consensus = $consensus_data_ptr.sequence # expect a copy
     #eff_cov = consensus_data_ptr.eff_cov[:len(consensus)]
     common.free_consensus_data(consensus_data_ptr)
-    return (consensus, seed_id)
+    return (consensus, args.seed_id)
 proc findall_patt(consensus: string, patt: Regex): seq[string] =
   result = findall(consensus, patt)
   #echo consensus[0], " ", len(consensus), " ", consensus[^1], " ", len(result)
@@ -139,6 +146,7 @@ proc format_seq(sequ: string, col: int): string =
   #result[(bn+tail)] = '\l' # Python did not add final newline
 proc main() =
   log("hi")
+  #threadpool.setMaxPoolSize(n_cores)
   let config: Config = (
     min_cov: 1, # default 6
     K: 8, # not cli
@@ -155,7 +163,8 @@ proc main() =
     var (seqs, seed_id, config_same) = q
     log($(len(seqs), seed_id, config))
     var consensus: string
-    (consensus, seed_id) = get_consensus_without_trim(seqs, seed_id, config)
+    var cargs: ConsensusArgs = (inseqs: seqs, seed_id: seed_id, config: config)
+    (consensus, seed_id) = get_consensus_without_trim(cargs)
     log($len(consensus), " in seed ", seed_id)
     if len(consensus) < 500:
         continue
