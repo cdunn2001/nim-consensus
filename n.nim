@@ -13,6 +13,8 @@ import strutils
 from foo import nil
 from common import nil
 
+let good_regions = re"[ACGT]+"
+
 proc log(msgs: varargs[string]) =
   for s in msgs:
     write(stderr, s)
@@ -102,13 +104,14 @@ iterator get_seq_data(config: Config, min_n_read, min_len_aln: int): auto =
 proc copy_seq_ptrs(cseqs: var cStringArray, seqs: seq[string]) =
   cseqs = allocCStringArray(seqs)
 
-type
-  ConsensusArgs = tuple
-    inseqs: seq[string]
-    seed_id: string
-    config: Config
-
-proc get_consensus_without_trim(args: ConsensusArgs): auto =
+type ConsensusArgs = tuple
+  inseqs: seq[string]
+  seed_id: string
+  config: Config
+type ConsensusResult = tuple
+  consensus: string
+  seed_id: string
+proc get_consensus_without_trim(args: ConsensusArgs): ConsensusResult =
     var config = args.config
     var seqs = args.inseqs
     if len(seqs) > config.max_n_read:
@@ -144,6 +147,34 @@ proc format_seq(sequ: string, col: int): string =
   result[bn .. <(bn+tail)] = sequ[bo .. <(bo+tail)]
   result.setLen(bn+tail)
   #result[(bn+tail)] = '\l' # Python did not add final newline
+proc process_consensus(cargs: ConsensusArgs) =
+    var (consensus, seed_id) = get_consensus_without_trim(cargs)
+    log($len(consensus), " in seed ", seed_id)
+    if len(consensus) < 500:
+        return
+    if false: # args.output_full:
+        echo ">"&seed_id&"_f"
+        echo consensus
+        return
+    var cns = findall_patt(consensus, good_regions)
+    if len(cns) == 0:
+        return
+    if true: #args.output_multi:
+        var seq_i = 0
+        for cns_seq in cns:
+            #log("%d %d" %(len(cns_seq), len(consensus)))
+            if len(cns_seq) < 500:
+                return
+            if seq_i >= 10:
+                break
+            #print ">prolog/%s%01d/%d_%d" % (seed_id, seq_i, 0, len(cns_seq))
+            echo ">prolog/", seed_id, seq_i, "/", 0, "_", len(cns_seq)
+            echo format_seq(cns_seq, 80)
+            seq_i += 1
+    else:
+        #cns.sort(key = lambda x: len(x))
+        echo ">"&seed_id
+        echo cns[cns.high-1]
 proc main() =
   log("hi")
   #threadpool.setMaxPoolSize(n_cores)
@@ -158,38 +189,10 @@ proc main() =
     max_cov_aln: 0)
   let min_n_read = 10
   let min_len_aln = 0
-  let good_regions = re"[ACGT]+"
   for q in get_seq_data(config, min_n_read, min_len_aln):
     var (seqs, seed_id, config_same) = q
     log($(len(seqs), seed_id, config))
-    var consensus: string
     var cargs: ConsensusArgs = (inseqs: seqs, seed_id: seed_id, config: config)
-    (consensus, seed_id) = get_consensus_without_trim(cargs)
-    log($len(consensus), " in seed ", seed_id)
-    if len(consensus) < 500:
-        continue
-    if false: # args.output_full:
-        echo ">"&seed_id&"_f"
-        echo consensus
-        continue
-    var cns = findall_patt(consensus, good_regions)
-    if len(cns) == 0:
-        continue
-    if true: #args.output_multi:
-        var seq_i = 0
-        for cns_seq in cns:
-            #log("%d %d" %(len(cns_seq), len(consensus)))
-            if len(cns_seq) < 500:
-                continue
-            if seq_i >= 10:
-                break
-            #print ">prolog/%s%01d/%d_%d" % (seed_id, seq_i, 0, len(cns_seq))
-            echo ">prolog/", seed_id, seq_i, "/", 0, "_", len(cns_seq)
-            echo format_seq(cns_seq, 80)
-            seq_i += 1
-    else:
-        #cns.sort(key = lambda x: len(x))
-        echo ">"&seed_id
-        echo cns[cns.high-1]
+    process_consensus(cargs)
 when isMainModule:
   main()
