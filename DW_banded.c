@@ -1,3 +1,5 @@
+#include <stdint.h>
+#include <time.h>
 
 /*
  * =====================================================================================
@@ -141,9 +143,14 @@ alignment * align(char * query_seq, seq_coor_t q_len,
 
     k_offset = max_d;
 
+struct timespec start, end;
+clock_gettime(CLOCK_MONOTONIC_RAW, &start);
     // We should probably use hashmap to store the backtracing information to save memory allocation time
     // This O(MN) block allocation scheme is convient for now but it is slower for very long sequences
     d_path = calloc( max_d * (band_size + 1 ) * 2 + 1, sizeof(d_path_data2) );
+clock_gettime(CLOCK_MONOTONIC_RAW, &end);
+mydelta_us += (end.tv_sec - start.tv_sec) * 1000000 + (end.tv_nsec - start.tv_nsec) / 1000;
+//fprintf(stderr, "calloc(%d x %d)\n", max_d * (band_size + 1 ) * 2 + 1, sizeof(d_path_data2));
 
     aln_path = calloc( q_len + t_len + 1, sizeof(path_point) );
 
@@ -156,6 +163,7 @@ alignment * align(char * query_seq, seq_coor_t q_len,
     align_rtn->aln_t_s = 0;
     align_rtn->aln_t_e = 0;
 
+//fprintf(stderr, "UV sz aln sz2: %d %d %d %d\n", (max_d * 2 + 1), sizeof(seq_coor_t), (q_len + t_len + 1), sizeof(d_path_data2));
     //printf("max_d: %lu, band_size: %lu\n", max_d, band_size);
     best_m = -1;
     min_k = 0;

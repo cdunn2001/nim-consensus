@@ -4,6 +4,7 @@
 {.compile: "poo.c".}
 {.compile: "falcon.c".}
 {.compile: "kmer_lookup.c".}
+import os
 import algorithm
 import threadpool
 import nre
@@ -15,12 +16,13 @@ from foo import nil
 from common import nil
 
 let good_regions = re"[ACGT]+"
-var thread_msa_array {.threadvar.}: string
+#var thread_msa_array {.threadvar.}: string
 
 proc log(msgs: varargs[string]) =
-  for s in msgs:
-    write(stderr, s)
-  write(stderr, '\l')
+  #for s in msgs:
+  #  write(stderr, s)
+  #write(stderr, '\l')
+  return
 proc get_longest_reads(seqs: seq[string], max_n_read, max_cov_aln: int): seq[string] =
     var longest_n_reads = max_n_read
     if max_cov_aln > 0:
@@ -124,7 +126,7 @@ proc get_consensus_without_trim(args: ConsensusArgs): ConsensusResult =
     var cseqs: cStringArray
     let n_seq: cuint = cuint(len(seqs))
     copy_seq_ptrs(cseqs, seqs)
-    foo.poo()
+    #foo.poo()
     log("About to generate_consensus ", $len(seqs), " ", $n_seq)
     #echo cseqs
     var consensus_data_ptr = common.generate_consensus(cseqs, n_seq, cuint(config.min_cov), cuint(config.K), cdouble(config.min_idt))
@@ -149,12 +151,14 @@ proc format_seq(sequ: string, col: int): string =
   result[bn .. <(bn+tail)] = sequ[bo .. <(bo+tail)]
   result.setLen(bn+tail)
   #result[(bn+tail)] = '\l' # Python did not add final newline
-proc process_consensus(cargs: ConsensusArgs) {.thread} =
+proc process_consensus(cargs: ConsensusArgs) = #{.thread} =
+    discard """
     if thread_msa_array == nil:
       log "Was nil"
       thread_msa_array = ""
     else:
       log "Was not nil"
+    """
     var (consensus, seed_id) = get_consensus_without_trim(cargs)
     log($len(consensus), " in seed ", seed_id)
     if len(consensus) < 500:
@@ -182,9 +186,13 @@ proc process_consensus(cargs: ConsensusArgs) {.thread} =
         #cns.sort(key = lambda x: len(x))
         echo ">"&seed_id
         echo cns[cns.high-1]
+proc simple(cargs: ConsensusArgs) =
+  echo "hi"
+  #var (consensus, seed_id) = get_consensus_without_trim(cargs)
+  discard get_consensus_without_trim(cargs)
 proc main() =
+  log("Setting MaxPoolSize")
   log("hi")
-  #threadpool.setMaxPoolSize(n_cores)
   let config: Config = (
     min_cov: 1, # default 6
     K: 8, # not cli
@@ -201,6 +209,11 @@ proc main() =
     log($(len(seqs), seed_id, config))
     var cargs: ConsensusArgs = (inseqs: seqs, seed_id: seed_id, config: config)
     spawn process_consensus(cargs)
+    #process_consensus(cargs)
+    #spawn os.sleep(1000)
+    #spawn simple(cargs)
   sync()
 when isMainModule:
+  threadpool.setMaxPoolSize(1) #n_cores)
+  #threadpool.Xsetup()
   main()

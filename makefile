@@ -1,3 +1,7 @@
+NIMFLAGS=-d:debug 
+NIMFLAGS=-d:release
+NIMFLAGS+=--verbosity:2
+
 do: n.exe
 	make -C t # LA4Falcon | ./n.exe
 
@@ -8,7 +12,7 @@ common.nim:
 run-%: %.exe
 	./$*.exe
 %.exe: %.nim
-	nim -d:debug --out:$*.exe c $<
+	nim ${NIMFLAGS} --out:$*.exe c $<
 
 # Not needed, but possible.
 LIBS:=DW_banded.o falcon.o kmer_lookup.o

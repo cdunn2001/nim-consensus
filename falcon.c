@@ -1,3 +1,7 @@
+#include <sys/types.h>
+#include <sys/syscall.h>
+//#include <sys/time.h>
+#include <time.h>
 /*
  * =====================================================================================
  *
@@ -301,7 +305,7 @@ void clean_msa_working_space( msa_pos_t * msa_array, unsigned int max_t_len) {
 }
 
 #define STATIC_ALLOCATE
-#undef STATIC_ALLOCATE
+//#undef STATIC_ALLOCATE
 
 consensus_data * get_cns_from_align_tags( align_tags_t ** tag_seqs,
                                           unsigned n_tag_seqs,
@@ -331,12 +335,12 @@ consensus_data * get_cns_from_align_tags( align_tags_t ** tag_seqs,
         allocate_delta_group(msa_array[i]);
     }
 
-#endif
-
-#ifdef STATIC_ALLOCATE
+#else
 
     static msa_pos_t * msa_array = NULL;
     if ( msa_array == NULL) {
+pid_t xxx = syscall(__NR_gettid);
+    fprintf(stderr, "STATIC allocating: %d\n", xxx);
         msa_array = get_msa_working_sapce( 100000 );
     }
 
@@ -346,7 +350,7 @@ consensus_data * get_cns_from_align_tags( align_tags_t ** tag_seqs,
 
 
     // loop through every alignment
-    //printf("XX %d\n", n_tag_seqs);
+    fprintf(stderr, "XX %d\n", n_tag_seqs);
     for (i = 0; i < n_tag_seqs; i++) {
 
         // for each alignment position, insert the alignment tag to msa_array
@@ -548,9 +552,7 @@ consensus_data * get_cns_from_align_tags( align_tags_t ** tag_seqs,
     }
 
     free(msa_array);
-#endif
-
-#ifdef STATIC_ALLOCATE
+#else
     clean_msa_working_space(msa_array, t_len+1);
 #endif
 
@@ -582,11 +584,15 @@ consensus_data * generate_consensus( char ** input_seq,
     max_diff = 1.0 - min_idt;
 
     seq_count = n_seq;
-    //printf("XX n_seq %d\n", n_seq);
+pid_t xxx = syscall(__NR_gettid);
+    fprintf(stderr, "XX n_seq:%d pid:\n", n_seq, xxx);
+struct timespec start, end;
+clock_gettime(CLOCK_MONOTONIC_RAW, &start);
+uint64_t delta_us;
     //for (j=0; j < seq_count; j++) {
     //    printf("seq_len: %u %u\n", j, strlen(input_seq[j]));
     //};
-    fflush(stdout);
+    //fflush(stdout);
 
     tags_list = calloc( seq_count, sizeof(align_tags_t *) );
     lk_ptr = allocate_kmer_lookup( 1 << (K * 2) );
@@ -595,6 +601,7 @@ consensus_data * generate_consensus( char ** input_seq,
     add_sequence( 0, K, input_seq[0], strlen(input_seq[0]), sda_ptr, sa_ptr, lk_ptr);
     //mask_k_mer(1 << (K * 2), lk_ptr, 16);
 
+mydelta_us = 0;
     aligned_seq_count = 0;
     for (j=1; j < seq_count; j++) {
 
@@ -648,6 +655,10 @@ consensus_data * generate_consensus( char ** input_seq,
         free_kmer_match( kmer_match_ptr);
     }
 
+    fprintf(stderr, "XX mydelta:%llfus for align()\n", (long double)(mydelta_us)/1000000.);
+clock_gettime(CLOCK_MONOTONIC_RAW, &end);
+delta_us = (end.tv_sec - start.tv_sec) * 1000000 + (end.tv_nsec - start.tv_nsec) / 1000;
+    fprintf(stderr, "XX delta:%llfus\n", (long double)(delta_us)/1000000.);
     if (aligned_seq_count > 0) {
         consensus = get_cns_from_align_tags( tags_list, aligned_seq_count, strlen(input_seq[0]), min_cov );
     } else {
@@ -664,6 +675,9 @@ consensus_data * generate_consensus( char ** input_seq,
         free_align_tags(tags_list[j]);
     }
     free(tags_list);
+clock_gettime(CLOCK_MONOTONIC_RAW, &end);
+delta_us = (end.tv_sec - start.tv_sec) * 1000000 + (end.tv_nsec - start.tv_nsec) / 1000;
+    fprintf(stderr, "XX len(cons) %d %llfus\n", strlen(consensus->sequence), (long double)(delta_us)/1000000.);
     return consensus;
 }
 
