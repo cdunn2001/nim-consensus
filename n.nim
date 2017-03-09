@@ -12,6 +12,7 @@ import sequtils
 import sets
 import strutils
 
+import fal
 from foo import nil
 from common import nil
 
@@ -19,9 +20,9 @@ let good_regions = re"[ACGT]+"
 #var thread_msa_array {.threadvar.}: string
 
 proc log(msgs: varargs[string]) =
-  #for s in msgs:
-  #  write(stderr, s)
-  #write(stderr, '\l')
+  for s in msgs:
+    write(stderr, s)
+  write(stderr, '\l')
   return
 proc get_longest_reads(seqs: seq[string], max_n_read, max_cov_aln: int): seq[string] =
     var longest_n_reads = max_n_read
@@ -115,6 +116,19 @@ type ConsensusArgs = tuple
 type ConsensusResult = tuple
   consensus: string
   seed_id: string
+proc get_con(args: ConsensusArgs): ConsensusResult =
+    var config = args.config
+    var seqs = args.inseqs
+    let n_seq = len(seqs)
+    if len(seqs) > config.max_n_read:
+        seqs = get_longest_sorted_reads(seqs, config.max_n_read, config.max_cov_aln)
+    #foo.poo()
+    log("About to generate_con ", $len(seqs), " ", $n_seq)
+    echo "pseq:", addr(cast[pointer](seqs[0])), addr(seqs[0][0])
+    var consensus = fal.generate_consensus(seqs, n_seq, config.min_cov, config.K, config.min_idt)
+    echo "cr:", addr(consensus[0])
+    #eff_cov = consensus_data_ptr.eff_cov[:len(consensus)]
+    return (consensus, args.seed_id)
 proc get_consensus_without_trim(args: ConsensusArgs): ConsensusResult =
     var config = args.config
     var seqs = args.inseqs
@@ -159,7 +173,8 @@ proc process_consensus(cargs: ConsensusArgs) = #{.thread} =
     else:
       log "Was not nil"
     """
-    var (consensus, seed_id) = get_consensus_without_trim(cargs)
+    #var (consensus, seed_id) = get_consensus_without_trim(cargs)
+    var (consensus, seed_id) = get_con(cargs)
     log($len(consensus), " in seed ", seed_id)
     if len(consensus) < 500:
         return
@@ -208,8 +223,8 @@ proc main() =
     var (seqs, seed_id, config_same) = q
     log($(len(seqs), seed_id, config))
     var cargs: ConsensusArgs = (inseqs: seqs, seed_id: seed_id, config: config)
-    spawn process_consensus(cargs)
-    #process_consensus(cargs)
+    #spawn process_consensus(cargs)
+    process_consensus(cargs)
     #spawn os.sleep(1000)
     #spawn simple(cargs)
   sync()
